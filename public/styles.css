@@ -166,6 +166,8 @@ body {
   cursor: pointer; transition: border-color .12s ease, background .12s ease;
 }
 .opt.sel { border-color: var(--lime); }   /* color-only change — no layout shift */
+.opt-loading { padding: 30px 22px; text-align: center; color: var(--ink); font-size: 16px; font-weight: 700; opacity: .5; animation: optpulse 1.2s ease-in-out infinite; }
+@keyframes optpulse { 0%, 100% { opacity: .38 } 50% { opacity: .72 } }
 
 /* ---- divider + write-your-own ---- */
 .or { display: flex; align-items: center; gap: 12px; margin: 16px 2px 10px; color: var(--ink); font-size: 13px; font-weight: 600; }

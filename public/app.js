@@ -123,8 +123,9 @@
   /* ===================== generic EDITOR ===================== */
   // cfg: { title, cur, ctx:{who,body,avatar}, heading, options, placeholder, cta, key, next }
   function editor(cfg) {
-    const preSel = -1;            // no auto-selected option
     state.chosen = null;
+    // build mode pulls AI options for the opening (s1) and the direction screens (cfg.dyn)
+    const aiBuild = state.mode === 'build' && (cfg.dyn || (cfg.key === 's1' && state.starterP));
     render(`<div class="screen">
       ${statusbar()}
       ${dotsHTML(cfg.cur)}
@@ -136,7 +137,7 @@
         </div>` : ''}
         ${cfg.intro ? `<div class="first-intro"><div class="fi-t">${cfg.intro.t}</div><div class="fi-s">${cfg.intro.s}</div></div>` : `<div class="section-title" style="margin-top:18px">${cfg.heading}</div>`}
         <div class="opts">
-          ${cfg.options.map((o, i) => `<div class="opt ${i === preSel ? 'sel' : ''}" data-i="${i}">${o}</div>`).join('')}
+          ${aiBuild ? `<div class="opt-loading">✦ AI 正在构思…</div>` : cfg.options.map((o, i) => `<div class="opt" data-i="${i}">${o}</div>`).join('')}
         </div>
         <div class="or">或者自己写</div>
         <textarea class="write" id="own" placeholder="${cfg.placeholder}"></textarea>
@@ -171,23 +172,24 @@
       cfg.next();
     };
 
-    // AI content (build mode only): swap fresh options in when they arrive. Never blocks, never breaks.
-    if (state.mode === 'build') {
-      const swap = (arr) => {
-        if (state.chosen) return;                          // don't yank a choice already made
-        const wrap = app().querySelector('.opts');
-        if (!wrap || !Array.isArray(arr) || !arr.length) return;
-        wrap.innerHTML = arr.map((o, i) => `<div class="opt" data-i="${i}">${o}</div>`).join('');
-        bindOpts();
-      };
-      if (cfg.key === 's1' && state.starterP) {
-        state.starterP.then(swap);                         // fresh story openings
-      } else if (cfg.dyn) {
-        fetch('/api/directions', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ story: storySoFar(), label: cfg.heading }),
-        }).then(r => r.json()).then(d => { if (d && d.ok) swap(d.options); }).catch(() => {});
-      }
+    // AI options: while they load we show "AI 正在构思…", then fill; on failure/timeout use the canned list.
+    function fillOpts(arr) {
+      if (state.chosen) return;                            // user already wrote/picked — leave them be
+      const wrap = app().querySelector('.opts');
+      if (!wrap) return;
+      const list = (Array.isArray(arr) && arr.length) ? arr : cfg.options;
+      wrap.innerHTML = list.map((o, i) => `<div class="opt" data-i="${i}">${o}</div>`).join('');
+      bindOpts();
+    }
+    if (aiBuild) {
+      const src = cfg.key === 's1'
+        ? (state.starterP || Promise.resolve(null))
+        : fetch('/api/directions', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ story: storySoFar(), label: cfg.heading }),
+          }).then(r => r.json()).then(d => (d && d.ok ? d.options : null)).catch(() => null);
+      const timeout = new Promise(res => setTimeout(() => res('__t__'), 8000));
+      Promise.race([src, timeout]).then(v => fillOpts(v === '__t__' ? null : v));
     }
   }
 
