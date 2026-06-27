@@ -22,7 +22,7 @@ const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001'; // cheap + fast on purpose (override via CLAUDE_MODEL)
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const BASE = (process.env.RUNWAY_API_BASE || 'https://api.dev.runwayml.com/v1').replace(/\/$/, '');
-const MODEL = process.env.RUNWAY_MODEL || 'gen4_turbo';
+const MODEL = process.env.RUNWAY_MODEL || 'gen4.5'; // gen4_turbo was retired by Runway; override via RUNWAY_MODEL
 const VERSION = process.env.RUNWAY_VERSION || '2024-11-06';
 const MOCK_VIDEO = '/assets/sample.mp4';
 
