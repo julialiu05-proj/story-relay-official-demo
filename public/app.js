@@ -88,6 +88,7 @@
       <div class="h1">开始一个新故事</div>
       <div class="sub">和好友接力，写只属于你们的故事</div>
       <div class="hero">
+        <div class="hero-emoji">🎬</div>
         <div class="hero-top">你们写的每一幕</div>
         <div class="hero-big">会变成一部短片</div>
       </div>
