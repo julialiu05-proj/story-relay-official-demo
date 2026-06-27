@@ -44,6 +44,17 @@ Runway key (below).
 - Any failure or timeout falls back to the sample clip with a small note, so the
   demo never dead-ends.
 
+## Security / guardrails
+- **The key never reaches the browser** — it lives only in `.env` on the server and
+  is sent in a server-side `Authorization` header. The front-end only calls `/api/generate`.
+- **`.env` is gitignored**, and a **pre-commit hook** (`githooks/`) blocks committing
+  any `.env` or key-shaped string. After cloning, activate it once:
+  `git config core.hooksPath githooks`.
+- **The `/api/generate` proxy is protected**: per-IP rate limit, same-origin check, and
+  a daily generation cap — tunable via `RATE_MAX`, `RATE_WINDOW_MS`, `ALLOWED_ORIGINS`,
+  `DAILY_CAP` in `.env`. This stops the public endpoint from being abused to burn credits.
+- If a key ever leaks, **rotate it** in the provider dashboard — it takes seconds.
+
 ## Structure
 
 ```

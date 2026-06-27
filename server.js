@@ -22,6 +22,41 @@ const MODEL = process.env.RUNWAY_MODEL || 'gen4_turbo';
 const VERSION = process.env.RUNWAY_VERSION || '2024-11-06';
 const MOCK_VIDEO = '/assets/sample.mp4';
 
+// ---- guardrails: the /api/generate proxy is public, so protect it from abuse ----
+// (these matter once a real key is set — they bound who can call it and how much
+//  Runway spend a bad actor could trigger, even though the key itself never leaks.)
+const RATE_WINDOW_MS = Number(process.env.RATE_WINDOW_MS) || 60_000; // window per IP
+const RATE_MAX = Number(process.env.RATE_MAX) || 5;                   // calls per window per IP
+const DAILY_CAP = Number(process.env.DAILY_CAP) || 50;               // real generations/day (spend guard)
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+
+const hits = new Map();          // ip -> { count, resetAt }
+let day = { key: '', count: 0 }; // global daily generation counter
+
+function rateLimited(ip) {
+  const now = Date.now();
+  const rec = hits.get(ip);
+  if (!rec || now > rec.resetAt) {
+    hits.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  rec.count += 1;
+  return rec.count > RATE_MAX;
+}
+
+// only let our own page (same host) or an explicitly allow-listed origin call the proxy
+function originAllowed(req) {
+  const src = req.get('origin') || req.get('referer') || '';
+  if (!src) return true; // native fetch / curl sends no Origin — can't reliably block, allow
+  let host;
+  try { host = new URL(src).host; } catch { return false; }
+  if (host === req.get('host')) return true;
+  return ALLOWED_ORIGINS.some((o) => {
+    try { return new URL(o).host === host; } catch { return o === host; }
+  });
+}
+
 function rwHeaders() {
   return {
     Authorization: `Bearer ${KEY}`,
@@ -77,6 +112,17 @@ app.post('/api/generate', async (req, res) => {
   if (!prompt || !prompt.trim()) {
     return res.status(400).json({ error: 'prompt required' });
   }
+
+  // guardrails (anti-abuse on the public proxy)
+  if (!originAllowed(req)) {
+    return res.status(403).json({ error: 'forbidden origin' });
+  }
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '')
+    .toString().split(',')[0].trim();
+  if (rateLimited(ip)) {
+    return res.status(429).json({ error: '请求过于频繁，请稍后再试 (rate limit)' });
+  }
+
   if (!KEY) {
     return res.json({
       videoUrl: MOCK_VIDEO,
@@ -84,6 +130,19 @@ app.post('/api/generate', async (req, res) => {
       note: '未设置 RUNWAY_API_KEY，播放示例片段。在 .env 里填入 key 即可真实生成。',
     });
   }
+
+  // daily spend cap — only real (keyed) generations count
+  const today = new Date().toISOString().slice(0, 10);
+  if (day.key !== today) day = { key: today, count: 0 };
+  if (day.count >= DAILY_CAP) {
+    return res.json({
+      videoUrl: MOCK_VIDEO,
+      mock: true,
+      note: '今日生成已达上限，播放示例片段。',
+    });
+  }
+  day.count += 1;
+
   try {
     const videoUrl = await runwayTextToVideo(prompt, { ratio, duration });
     res.json({ videoUrl, mock: false });

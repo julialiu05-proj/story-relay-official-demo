@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Secret guard for Story Relay — blocks committing a real .env or anything that
+# looks like an API key / token. Active because core.hooksPath = githooks.
+# Bypass a false positive with:  git commit --no-verify
+#
+set -euo pipefail
+
+fail=0
+
+# 1) never commit a real env file (only .env.example is allowed)
+while IFS= read -r f; do
+  case "$f" in
+    .env.example) : ;;
+    .env|.env.local|.env.*|*/.env)
+      echo "BLOCKED: '$f' is an env file — secrets must never be committed."
+      fail=1 ;;
+  esac
+done < <(git diff --cached --name-only)
+
+# 2) scan ADDED lines for secret-shaped strings (skip the placeholder template).
+#    BLOCK if a line has either a strong key prefix, OR a secret keyword assignment
+#    together with a 20+ char token. Short placeholders (your_key_here) are ignored.
+KEYWORD='(RUNWAY_API_KEY|API_KEY|APIKEY|SECRET|TOKEN|PASSWORD)[[:space:]]*[:=]'
+LONGTOK='[A-Za-z0-9_/.+-]{20,}'
+STRONG='(key-|key_|sk-)[A-Za-z0-9]{20,}|Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+
+while IFS= read -r f; do
+  [ "$f" = ".env.example" ] && continue
+  added="$(git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' || true)"
+  [ -z "$added" ] && continue
+  hot="$(printf '%s\n' "$added" | grep -viE 'your_key|placeholder|example|xxxx|changeme' || true)"
+  [ -z "$hot" ] && continue
+  if printf '%s\n' "$hot" | grep -qE "$STRONG" \
+     || { printf '%s\n' "$hot" | grep -E "$KEYWORD" | grep -qE "$LONGTOK"; }; then
+    echo "BLOCKED: '$f' contains something that looks like a secret/API key."
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "Commit aborted by the secret guard. Put secrets in .env (gitignored)."
+  echo "False positive? Re-run with:  git commit --no-verify"
+  exit 1
+fi
+exit 0
