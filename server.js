@@ -17,6 +17,8 @@ app.use(express.json({ limit: '12mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const KEY = process.env.RUNWAY_API_KEY && process.env.RUNWAY_API_KEY.trim();
+// Optional Claude key — only used if/when LLM features are wired in. Server-side only.
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim();
 const BASE = (process.env.RUNWAY_API_BASE || 'https://api.dev.runwayml.com/v1').replace(/\/$/, '');
 const MODEL = process.env.RUNWAY_MODEL || 'gen4_turbo';
 const VERSION = process.env.RUNWAY_VERSION || '2024-11-06';
@@ -104,7 +106,12 @@ async function runwayTextToVideo(prompt, { ratio = '1280:720', duration = 5 } = 
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, runway: KEY ? 'configured' : 'not-configured', model: MODEL });
+  res.json({
+    ok: true,
+    runway: KEY ? 'configured' : 'not-configured',
+    anthropic: ANTHROPIC_KEY ? 'configured' : 'not-configured',
+    model: MODEL,
+  });
 });
 
 app.post('/api/generate', async (req, res) => {

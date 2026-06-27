@@ -23,7 +23,7 @@ done < <(git diff --cached --name-only)
 #    together with a 20+ char token. Short placeholders (your_key_here) are ignored.
 KEYWORD='(RUNWAY_API_KEY|API_KEY|APIKEY|SECRET|TOKEN|PASSWORD)[[:space:]]*[:=]'
 LONGTOK='[A-Za-z0-9_/.+-]{20,}'
-STRONG='(key-|key_|sk-)[A-Za-z0-9]{20,}|Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
+STRONG='(key-|key_|sk-)[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
 
 while IFS= read -r f; do
   [ "$f" = ".env.example" ] && continue
