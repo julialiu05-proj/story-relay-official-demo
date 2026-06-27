@@ -14,7 +14,12 @@ const path = require('path');
 
 const app = express();
 app.use(express.json({ limit: '12mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+// no-store so the browser always loads the latest files (no stale cached screens during the demo)
+app.use(express.static(path.join(__dirname, 'public'), {
+  etag: false,
+  lastModified: false,
+  setHeaders: (res) => res.setHeader('Cache-Control', 'no-store'),
+}));
 
 const KEY = process.env.RUNWAY_API_KEY && process.env.RUNWAY_API_KEY.trim();
 // Optional Claude key — powers story starters / directions / video-prompt director. Server-side only.
@@ -39,6 +44,8 @@ const hits = new Map();          // ip -> { count, resetAt }
 let day = { key: '', count: 0 }; // global daily generation counter
 
 function rateLimited(ip) {
+  // never throttle local use (your own machine) — the limiter is for a public deployment
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return false;
   const now = Date.now();
   const rec = hits.get(ip);
   if (!rec || now > rec.resetAt) {
