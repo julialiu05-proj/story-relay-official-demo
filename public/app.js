@@ -32,8 +32,20 @@
     julia78: '门后是整座漂浮的城市，猫回头说：欢迎回家。',
   };
 
-  const state = { mode: null, theme: '悬疑', scenes: {}, chosen: null, friend: { name: 'Julia', av: './assets/julia.jpeg' } };
+  const state = { mode: null, theme: '悬疑', scenes: {}, chosen: null, dyn: {}, starterP: null, friend: { name: 'Julia', av: './assets/julia.jpeg' } };
   const FNAME = () => state.friend.name;
+
+  /* ---- optional Claude features (graceful: any failure falls back to hardcoded) ---- */
+  function storySoFar() {
+    const s = state.scenes;
+    return [s.s1, s.s2, STORY.julia34, s.s5, s.s6].filter(Boolean).join(' ');
+  }
+  function fetchStarter() {
+    state.starterP = fetch('/api/starter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      .then(r => r.json())
+      .then(d => { if (d && d.ok && Array.isArray(d.opening) && d.opening.length) state.dyn.opening = d.opening; return state.dyn.opening || null; })
+      .catch(() => null);
+  }
 
   /* ---------------- shared chrome (real Figma exports — no hand-drawn svg) ---------------- */
   const statusbar = (v) => `<div class="statusbar"><img src="./assets/statusbar-${v === 'white' ? 'white' : 'dark'}.svg" alt=""></div>`;
@@ -75,7 +87,7 @@
         <div class="demolink" id="demo">先看一个示例</div>
       </div>
     </div>`);
-    document.getElementById('build').onclick = () => { state.mode = 'build'; state.scenes = {}; theme(); };
+    document.getElementById('build').onclick = () => { state.mode = 'build'; state.scenes = {}; state.dyn = {}; fetchStarter(); theme(); };
     document.getElementById('demo').onclick = () => { state.mode = 'demo'; state.scenes = {}; whaleStart(); };
   }
 
@@ -123,17 +135,20 @@
       <div class="cta-row"><button class="cta" id="go">${cfg.cta.replace(/✦\s*/, STAR)}</button></div>
     </div>`);
 
-    const opts = [...app().querySelectorAll('.opt')];
+    let opts = [];
     const own = document.getElementById('own');
     const go = document.getElementById('go');
     const refresh = () => { go.disabled = !(own.value.trim() || state.chosen); };  // grey until a pick/type
-    function selectOpt(el) {
-      opts.forEach(x => x.classList.toggle('sel', x === el));
-      state.chosen = el.textContent;
-      own.value = '';
-      refresh();
+    function bindOpts() {
+      opts = [...app().querySelectorAll('.opt')];
+      opts.forEach(el => el.onclick = () => {
+        opts.forEach(x => x.classList.toggle('sel', x === el));
+        state.chosen = el.textContent;
+        own.value = '';
+        refresh();
+      });
     }
-    opts.forEach(el => el.onclick = () => selectOpt(el));
+    bindOpts();
     own.oninput = () => {
       if (own.value.trim()) { opts.forEach(x => x.classList.remove('sel')); state.chosen = own.value.trim(); }
       else if (!opts.some(x => x.classList.contains('sel'))) { state.chosen = null; }
@@ -146,19 +161,38 @@
       state.scenes[cfg.key] = text;
       cfg.next();
     };
+
+    // AI content (build mode only): swap fresh options in when they arrive. Never blocks, never breaks.
+    if (state.mode === 'build') {
+      const swap = (arr) => {
+        if (state.chosen) return;                          // don't yank a choice already made
+        const wrap = app().querySelector('.opts');
+        if (!wrap || !Array.isArray(arr) || !arr.length) return;
+        wrap.innerHTML = arr.map((o, i) => `<div class="opt" data-i="${i}">${o}</div>`).join('');
+        bindOpts();
+      };
+      if (cfg.key === 's1' && state.starterP) {
+        state.starterP.then(swap);                         // fresh story openings
+      } else if (cfg.dyn) {
+        fetch('/api/directions', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ story: storySoFar(), label: cfg.heading }),
+        }).then(r => r.json()).then(d => { if (d && d.ok) swap(d.options); }).catch(() => {});
+      }
+    }
   }
 
   const EDITORS = {
     s1: { cur: 0, key: 's1', heading: '选一个开头', cta: '下一幕', placeholder: '自己写一个开头…',
       intro: { t: '写下故事的开头', s: '选一个，或者自己写一个' },
-      get options() { return STORY.opening }, next: () => editor(EDITORS.s2) },
-    s2: { cur: 1, key: 's2', heading: '接着往哪走', cta: '发给好友', placeholder: '自己写…',
+      get options() { return state.dyn.opening || STORY.opening }, next: () => editor(EDITORS.s2) },
+    s2: { cur: 1, key: 's2', heading: '接着往哪走', cta: '发给好友', placeholder: '自己写…', dyn: true,
       get ctx() { return { who: '你写的 · 第 1 幕', body: state.scenes.s1 || STORY.opening[0], avatar: 'lime' } },
       get options() { return STORY.direction }, next: () => pickFriend(() => catChat1()) },
-    s5: { cur: 4, key: 's5', heading: '接着写', cta: '下一幕', placeholder: '自己写第 5 幕…',
+    s5: { cur: 4, key: 's5', heading: '接着写', cta: '下一幕', placeholder: '自己写第 5 幕…', dyn: true,
       get ctx() { return { who: `${FNAME()} 写的 · 第 3–4 幕`, body: STORY.julia34, avatar: 'julia' } },
       get options() { return STORY.scene5 }, next: () => editor(EDITORS.s6) },
-    s6: { cur: 5, key: 's6', heading: '接着写', get cta() { return '发给 ' + FNAME(); }, placeholder: '自己写第 6 幕…',
+    s6: { cur: 5, key: 's6', heading: '接着写', get cta() { return '发给 ' + FNAME(); }, placeholder: '自己写第 6 幕…', dyn: true,
       get ctx() { return { who: '你写的 · 第 5 幕', body: state.scenes.s5 || STORY.scene5[0], avatar: 'lime' } },
       get options() { return STORY.scene6 }, next: () => catChat2() },
   };
@@ -363,9 +397,12 @@
 
   /* ===================== generating + film ===================== */
   // Template-only prompt: locked style + the full story beats + technical constraints → one 6–10s clip.
-  function fullPrompt() {
+  function sceneBeats() {
     const s = state.scenes;
-    const beats = [s.s1, s.s2, STORY.julia34, s.s5, s.s6, STORY.julia78].filter(Boolean).join(' ');
+    return [s.s1, s.s2, STORY.julia34, s.s5, s.s6, STORY.julia78].filter(Boolean);
+  }
+  function fullPrompt() {
+    const beats = sceneBeats().join(' ');
     return [
       'Playful 3D animated short film, soft pastel colors, warm cinematic lighting, cute storybook character design, shallow depth of field, gentle flowing camera motion.',
       'Tell this story as one continuous dreamy montage:',
@@ -398,7 +435,7 @@
     // build mode → real Runway video via the server
     fetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt(), duration: 10, ratio: '720:1280' }),
+      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 10, ratio: '720:1280' }),
     })
       .then(r => r.json())
       .then(d => showFilm(d.videoUrl || './assets/sample.mp4', d.mock ? (d.note || '示例片段') : null))
