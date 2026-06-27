@@ -448,7 +448,7 @@
     // build mode → real Runway video via the server
     fetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 10, ratio: '720:1280' }),
+      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 8, ratio: '720:1280' }),
     })
       .then(r => r.json())
       .then(d => showFilm(d.videoUrl || './assets/sample.mp4', d.mock ? (d.note || '示例片段') : null))
@@ -465,7 +465,7 @@
       ${statusbar()}
       <div class="bar"><span class="back">‹</span><span class="screen-title">${title}</span></div>
       <div class="bigcard filmcard">
-        <video src="${url}" playsinline ${poster}></video>
+        <video src="${url}" playsinline autoplay muted ${poster}></video>
         <div class="filmplay" id="play"><span>▶</span></div>
       </div>
       ${note ? `<div class="endcap">${note}</div>` : ''}
@@ -473,8 +473,10 @@
     </div>`);
     const v = app().querySelector('video');
     const play = document.getElementById('play');
-    play.onclick = () => { if (v.ended) v.currentTime = 0; v.play(); play.style.display = 'none'; v.controls = true; };
+    v.addEventListener('playing', () => { play.style.display = 'none'; });   // hide ▶ while it reveals
+    play.onclick = () => { v.muted = false; if (v.ended) v.currentTime = 0; v.play(); play.style.display = 'none'; v.controls = true; };
     v.onended = () => { play.querySelector('span').textContent = '↺'; play.style.display = 'grid'; v.controls = false; };
+    v.play().catch(() => { play.style.display = 'grid'; });   // muted autoplay reveal; show ▶ if blocked
     app().querySelector('.bar .back').onclick = landing;
     document.getElementById('save').onclick = landing;
     document.getElementById('pub').onclick = landing;
