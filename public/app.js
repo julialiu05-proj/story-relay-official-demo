@@ -426,20 +426,18 @@
   }
 
   function generating() {
-    render(`<div class="screen endscreen">
+    render(`<div class="screen gen-screen">
       ${statusbar()}
-      <div class="bar"><span class="back">‹</span><span class="screen-title">正在生成</span></div>
-      <div class="bigcard gencard">
-        <div class="genmid">
-          <img class="genstar" src="./assets/star.svg" alt="">
-          <div class="gent">正在生成你们的影片…</div>
-          <div class="gens" id="gsub">马上就好，请稍候…</div>
+      <div class="gen-center">
+        <div class="gen-sparkles">
+          <img class="spk spk-sm" src="./assets/star.svg" alt="">
+          <img class="spk spk-lg" src="./assets/star.svg" alt="">
+          <img class="spk spk-md" src="./assets/star.svg" alt="">
         </div>
+        <div class="gen-title">正在生成你们的影片…</div>
+        <div class="gen-sub" id="gsub">马上就好，请稍候…</div>
       </div>
-      <div class="endcap">影片生成好后，就能保存或发布啦</div>
-      <div class="savepub"><button class="cta ghost" disabled>保存</button><button class="cta ghost" disabled>发布</button></div>
     </div>`);
-    app().querySelector('.bar .back').onclick = landing;
 
     if (state.mode === 'demo') {
       setTimeout(() => showFilm('./assets/finale.mp4'), 2600);   // whale = mango-whale video
