@@ -26,7 +26,8 @@ LONGTOK='[A-Za-z0-9_/.+-]{20,}'
 STRONG='(key-|key_|sk-)[A-Za-z0-9]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|Bearer[[:space:]]+[A-Za-z0-9._-]{20,}'
 
 while IFS= read -r f; do
-  [ "$f" = ".env.example" ] && continue
+  # NOTE: .env.example is scanned too — its keys must stay BLANK. A real key
+  # pasted into the template (a common mistake) is blocked just like anywhere else.
   added="$(git diff --cached -U0 -- "$f" | grep '^+' | grep -v '^+++' || true)"
   [ -z "$added" ] && continue
   hot="$(printf '%s\n' "$added" | grep -viE 'your_key|placeholder|example|xxxx|changeme' || true)"
