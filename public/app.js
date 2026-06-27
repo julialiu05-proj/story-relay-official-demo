@@ -444,17 +444,40 @@
       setTimeout(() => showFilm('./assets/finale.mp4'), 2600);   // whale = mango-whale video
       return;
     }
-    // build mode → real Runway video via the server
+    // build mode → kick off the Runway job, then poll for the result (serverless-friendly)
+    const lines = ['马上就好，请稍候…', '正在为第 1 幕打光…', '镜头在动了…', '快好了，正在收尾…'];
+    let li = 0; const sub = document.getElementById('gsub');
+    const ticker = setInterval(() => { if (!document.getElementById('gsub')) return clearInterval(ticker); li = (li + 1) % lines.length; sub.textContent = lines[li]; }, 4000);
+    const done = (url, note) => { clearInterval(ticker); showFilm(url, note); };
+
     fetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 8, ratio: '720:1280' }),
     })
       .then(r => r.json())
-      .then(d => showFilm(d.videoUrl || './assets/sample.mp4', d.mock ? (d.note || '示例片段') : null))
-      .catch(() => showFilm('./assets/sample.mp4', '生成失败，播放示例片段。'));
-    const lines = ['马上就好，请稍候…', '正在为第 1 幕打光…', '镜头在动了…', '快好了，正在收尾…'];
-    let i = 0; const sub = document.getElementById('gsub');
-    const tick = setInterval(() => { i++; if (!document.getElementById('gsub')) return clearInterval(tick); if (i < lines.length) sub.textContent = lines[i]; }, 4000);
+      .then(d => {
+        if (d.taskId) return pollFilm(d.taskId, done);
+        done(d.videoUrl || './assets/sample.mp4', d.note || (d.mock ? '示例片段' : null));   // mock / immediate
+      })
+      .catch(() => done('./assets/sample.mp4', '生成失败，播放示例片段。'));
+  }
+
+  // poll the server for the Runway task until it's ready — short calls, no held request
+  function pollFilm(taskId, done) {
+    const deadline = Date.now() + 5 * 60 * 1000;   // give up after 5 min
+    const check = () => {
+      if (!document.querySelector('.gen-screen')) return;   // user navigated away
+      fetch('/api/status?id=' + encodeURIComponent(taskId))
+        .then(r => r.json())
+        .then(s => {
+          if (s.status === 'SUCCEEDED' && s.videoUrl) return done(s.videoUrl, s.mock ? '示例片段' : null);
+          if (s.status === 'FAILED') return done('./assets/sample.mp4', '生成失败，播放示例片段。');
+          if (Date.now() > deadline) return done('./assets/sample.mp4', '生成超时，播放示例片段。');
+          setTimeout(check, 5000);
+        })
+        .catch(() => { if (Date.now() > deadline) done('./assets/sample.mp4', '生成失败，播放示例片段。'); else setTimeout(check, 5000); });
+    };
+    setTimeout(check, 5000);   // first check after 5s
   }
 
   function showFilm(url, note) {

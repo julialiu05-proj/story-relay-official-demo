@@ -117,13 +117,8 @@ function rwHeaders() {
   };
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-
-/**
- * Create a text-to-video task and poll until it finishes.
- * Returns the output video URL.
- */
-async function runwayTextToVideo(prompt, { ratio = '1280:720', duration = 5 } = {}) {
+// Create a text-to-video task; returns the task id. Fast — fits a serverless timeout.
+async function runwayCreateTask(prompt, { ratio = '1280:720', duration = 5 } = {}) {
   const createRes = await fetch(`${BASE}/text_to_video`, {
     method: 'POST',
     headers: rwHeaders(),
@@ -135,24 +130,23 @@ async function runwayTextToVideo(prompt, { ratio = '1280:720', duration = 5 } = 
   }
   const { id } = await createRes.json();
   if (!id) throw new Error('no task id returned');
+  return id;
+}
 
-  const deadline = Date.now() + 5 * 60 * 1000; // 5 min cap
-  while (Date.now() < deadline) {
-    await sleep(4000);
-    const sRes = await fetch(`${BASE}/tasks/${id}`, { headers: rwHeaders() });
-    if (!sRes.ok) continue;
-    const task = await sRes.json();
-    if (task.status === 'SUCCEEDED') {
-      const out = Array.isArray(task.output) ? task.output[0] : task.output;
-      if (!out) throw new Error('succeeded but no output url');
-      return out;
-    }
-    if (task.status === 'FAILED') {
-      throw new Error('runway task failed: ' + (task.failureCode || task.failure || 'unknown'));
-    }
-    // PENDING / RUNNING / THROTTLED → keep polling
+// Check a task once; returns { status, videoUrl?, error? }. The browser polls this,
+// so no single request is ever held open for the multi-minute generation.
+async function runwayTaskStatus(id) {
+  const sRes = await fetch(`${BASE}/tasks/${id}`, { headers: rwHeaders() });
+  if (!sRes.ok) return { status: 'PENDING' }; // transient — keep polling
+  const task = await sRes.json();
+  if (task.status === 'SUCCEEDED') {
+    const out = Array.isArray(task.output) ? task.output[0] : task.output;
+    return { status: 'SUCCEEDED', videoUrl: out || null };
   }
-  throw new Error('timed out after 5 minutes');
+  if (task.status === 'FAILED') {
+    return { status: 'FAILED', error: task.failureCode || task.failure || 'unknown' };
+  }
+  return { status: task.status || 'PENDING' };
 }
 
 app.get('/api/health', (req, res) => {
@@ -206,12 +200,26 @@ app.post('/api/generate', async (req, res) => {
   }
   day.count += 1;
 
+  // kick off the Runway job and return the task id immediately — the browser polls /api/status.
   try {
-    const videoUrl = await runwayTextToVideo(prompt, { ratio, duration });
-    res.json({ videoUrl, mock: false });
+    const taskId = await runwayCreateTask(prompt, { ratio, duration });
+    res.json({ taskId });
   } catch (err) {
-    console.error('[runway]', err.message);
+    console.error('[runway create]', err.message);
     res.json({ videoUrl: MOCK_VIDEO, mock: true, note: 'Runway 调用失败，播放示例片段：' + err.message });
+  }
+});
+
+// poll a Runway task's status — the browser hits this every few seconds until the film is ready
+app.get('/api/status', async (req, res) => {
+  const id = (req.query.id || '').toString();
+  if (!id) return res.status(400).json({ error: 'id required' });
+  if (!KEY) return res.json({ status: 'SUCCEEDED', videoUrl: MOCK_VIDEO, mock: true });
+  try {
+    res.json(await runwayTaskStatus(id));
+  } catch (err) {
+    console.error('[runway status]', err.message);
+    res.json({ status: 'PENDING' }); // transient — keep the client polling
   }
 });
 
@@ -282,8 +290,14 @@ app.post('/api/continue', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`\n  🎬  Story Relay official demo`);
-  console.log(`      → http://localhost:${PORT}`);
-  console.log(`      Runway: ${KEY ? 'configured (' + MODEL + ')' : 'NOT configured — build-your-own uses sample clip'}\n`);
-});
+// Only start a listener when run directly (local dev). On Vercel the exported app
+// is invoked per-request as a serverless function — no app.listen there.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`\n  🎬  Story Relay official demo`);
+    console.log(`      → http://localhost:${PORT}`);
+    console.log(`      Runway: ${KEY ? 'configured (' + MODEL + ')' : 'NOT configured — build-your-own uses sample clip'}\n`);
+  });
+}
+
+module.exports = app;
