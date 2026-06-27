@@ -9,3 +9,6 @@ node_modules/
 .DS_Store
 *.log
 npm-debug.log*
+
+# temp headless-screenshot test pages
+public/_*.html
