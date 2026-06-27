@@ -19,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const KEY = process.env.RUNWAY_API_KEY && process.env.RUNWAY_API_KEY.trim();
 // Optional Claude key — powers story starters / directions / video-prompt director. Server-side only.
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim();
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5'; // cheap + fast on purpose
+const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001'; // cheap + fast on purpose (override via CLAUDE_MODEL)
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const BASE = (process.env.RUNWAY_API_BASE || 'https://api.dev.runwayml.com/v1').replace(/\/$/, '');
 const MODEL = process.env.RUNWAY_MODEL || 'gen4_turbo';
