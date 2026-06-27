@@ -253,6 +253,27 @@ app.post('/api/directions', async (req, res) => {
   }
 });
 
+// FRIEND'S RELAY TURN — Claude continues YOUR story (scenes 3–4, then the 7–8 finale)
+app.post('/api/continue', async (req, res) => {
+  if (!ANTHROPIC_KEY) return res.json({ ok: false });
+  if (rejected(req, res)) return;
+  const story = (req.body && req.body.story || '').toString().slice(0, 1200);
+  const ask = (req.body && req.body.ask || '接着把故事往下写').toString().slice(0, 40);
+  try {
+    const txt = await callClaude(
+      '你是好友接力故事里的另一位作者，自然地接着把故事往下写。只输出续写的一句话，不要引号、不要解释。',
+      '故事到现在：' + story + '\n' + ask + '，写一句话（不超过30字），承接上文、推进剧情。',
+      120
+    );
+    const line = txt.replace(/^[\s"「『]+|[\s"」』]+$/g, '').trim();
+    if (line) return res.json({ ok: true, text: line });
+    res.json({ ok: false });
+  } catch (err) {
+    console.error('[claude continue]', err.message);
+    res.json({ ok: false });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n  🎬  Story Relay official demo`);

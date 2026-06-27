@@ -38,13 +38,22 @@
   /* ---- optional Claude features (graceful: any failure falls back to hardcoded) ---- */
   function storySoFar() {
     const s = state.scenes;
-    return [s.s1, s.s2, STORY.julia34, s.s5, s.s6].filter(Boolean).join(' ');
+    return [s.s1, s.s2, J34(), s.s5, s.s6].filter(Boolean).join(' ');
   }
   function fetchStarter() {
     state.starterP = fetch('/api/starter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       .then(r => r.json())
       .then(d => { if (d && d.ok && Array.isArray(d.opening) && d.opening.length) state.dyn.opening = d.opening; return state.dyn.opening || null; })
       .catch(() => null);
+  }
+  // the friend's relay turns — AI-written continuation of YOUR story (falls back to the canned cat lines)
+  const J34 = () => state.dyn.j34 || STORY.julia34;
+  const J78 = () => state.dyn.j78 || STORY.julia78;
+  function fetchContinue(key, story, ask) {
+    return fetch('/api/continue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ story, ask }) })
+      .then(r => r.json())
+      .then(d => { if (d && d.ok && d.text) state.dyn[key] = d.text; })
+      .catch(() => {});
   }
 
   /* ---------------- shared chrome (real Figma exports — no hand-drawn svg) ---------------- */
@@ -190,7 +199,7 @@
       get ctx() { return { who: '你写的 · 第 1 幕', body: state.scenes.s1 || STORY.opening[0], avatar: 'lime' } },
       get options() { return STORY.direction }, next: () => pickFriend(() => catChat1()) },
     s5: { cur: 4, key: 's5', heading: '接着写', cta: '下一幕', placeholder: '自己写第 5 幕…', dyn: true,
-      get ctx() { return { who: `${FNAME()} 写的 · 第 3–4 幕`, body: STORY.julia34, avatar: 'julia' } },
+      get ctx() { return { who: `${FNAME()} 写的 · 第 3–4 幕`, body: J34(), avatar: 'julia' } },
       get options() { return STORY.scene5 }, next: () => editor(EDITORS.s6) },
     s6: { cur: 5, key: 's6', heading: '接着写', get cta() { return '发给 ' + FNAME(); }, placeholder: '自己写第 6 幕…', dyn: true,
       get ctx() { return { who: '你写的 · 第 5 幕', body: state.scenes.s5 || STORY.scene5[0], avatar: 'lime' } },
@@ -276,6 +285,7 @@
 
   /* ---- CAT (build) chat segments ---- */
   function catChat1() {  // after 方向 2/8 you sent 1–2, Julia writes 3–4
+    if (state.mode === 'build') fetchContinue('j34', [state.scenes.s1, state.scenes.s2].filter(Boolean).join(' '), '接着写第 3–4 幕');
     chatLog = [];
     playChat([
       { day: '今天 下午 3:20' },
@@ -286,6 +296,7 @@
     ], () => editor(EDITORS.s5));
   }
   function catChat2() {  // after 第6幕 you sent 5–6, Julia finishes 7–8 + film
+    if (state.mode === 'build') fetchContinue('j78', [state.scenes.s1, state.scenes.s2, J34(), state.scenes.s5, state.scenes.s6].filter(Boolean).join(' '), '写故事的大结局第 7–8 幕，收尾');
     playChat([
       { card: { side: 'out', title: '你完成了第 5–6 幕', done: 6, pill: `等待 ${FNAME()} 收尾` } },
       { card: { side: 'in', title: `${FNAME()} 完成了第 7–8 幕`, done: 8, pill: '已接力' } },
@@ -399,7 +410,7 @@
   // Template-only prompt: locked style + the full story beats + technical constraints → one 6–10s clip.
   function sceneBeats() {
     const s = state.scenes;
-    return [s.s1, s.s2, STORY.julia34, s.s5, s.s6, STORY.julia78].filter(Boolean);
+    return [s.s1, s.s2, J34(), s.s5, s.s6, J78()].filter(Boolean);
   }
   function fullPrompt() {
     const beats = sceneBeats().join(' ');
