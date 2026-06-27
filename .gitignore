@@ -1,0 +1,11 @@
+# dependencies
+node_modules/
+
+# secrets — never commit the real key (only .env.example is tracked)
+.env
+.env.local
+
+# os / editor cruft
+.DS_Store
+*.log
+npm-debug.log*
