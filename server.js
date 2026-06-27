@@ -240,7 +240,7 @@ app.post('/api/starter', async (req, res) => {
     res.json({ ok: false });
   } catch (err) {
     console.error('[claude starter]', err.message);
-    res.json({ ok: false });
+    res.json({ ok: false, detail: err.message });   // TEMP: surface the real error for diagnosis
   }
 });
 
