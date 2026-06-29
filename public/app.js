@@ -39,7 +39,7 @@
     return [s.s1, J2(), s.s3].filter(Boolean).join(' ');
   }
   function fetchStarter() {
-    state.starterP = fetch('/api/starter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    state.starterP = fetch('/api/starter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ theme: state.theme }) })
       .then(r => r.json())
       .then(d => { if (d && d.ok && Array.isArray(d.opening) && d.opening.length) state.dyn.opening = d.opening; return state.dyn.opening || null; })
       .catch(() => null);
@@ -48,7 +48,7 @@
   const J2 = () => state.dyn.j2 || STORY.julia2;
   const J4 = () => state.dyn.j4 || STORY.julia4;
   function fetchContinue(key, story, ask) {
-    return fetch('/api/continue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ story, ask }) })
+    return fetch('/api/continue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ story, ask, theme: state.theme }) })
       .then(r => r.json())
       .then(d => { if (d && d.ok && d.text) state.dyn[key] = d.text; })
       .catch(() => {});
@@ -96,7 +96,7 @@
         <div class="demolink" id="demo">先看一个示例</div>
       </div>
     </div>`);
-    document.getElementById('build').onclick = () => { state.mode = 'build'; state.scenes = {}; state.dyn = {}; fetchStarter(); theme(); };
+    document.getElementById('build').onclick = () => { state.mode = 'build'; state.scenes = {}; state.dyn = {}; theme(); };
     document.getElementById('demo').onclick = () => { state.mode = 'demo'; state.scenes = {}; whaleStart(); };
   }
 
@@ -116,7 +116,7 @@
       state.theme = t.dataset.nm;
       app().querySelectorAll('.tile').forEach(x => x.classList.toggle('sel', x === t));
     });
-    document.getElementById('go').onclick = () => editor(EDITORS.s1);
+    document.getElementById('go').onclick = () => { fetchStarter(); editor(EDITORS.s1); };  // fetch openings now that the theme is chosen
     app().querySelector('.back').onclick = landing;
   }
 
@@ -186,7 +186,7 @@
         ? (state.starterP || Promise.resolve(null))
         : fetch('/api/directions', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ story: storySoFar(), label: cfg.heading }),
+            body: JSON.stringify({ story: storySoFar(), label: cfg.heading, theme: state.theme }),
           }).then(r => r.json()).then(d => (d && d.ok ? d.options : null)).catch(() => null);
       const timeout = new Promise(res => setTimeout(() => res('__t__'), 8000));
       Promise.race([src, timeout]).then(v => fillOpts(v === '__t__' ? null : v));

@@ -179,10 +179,11 @@ app.post('/api/generate', async (req, res) => {
       const beats = scenes.filter(Boolean).join(' ');
       const better = await callClaude(
         'You are a cinematic director. Output ONLY one text-to-video prompt — no preamble, no quotes.',
-        'Turn this 4-beat story into ONE vivid English prompt (max 70 words) for a 10 second clip. ' +
-          'Cover all four beats in order as one continuous shot so the action flows scene to scene. ' +
+        'Turn this 4-beat story into ONE vivid English prompt (max 60 words) for a 10 second clip. ' +
+          'Keep it SIMPLE: one continuous, easy-to-follow action through the four beats — no subplots, ' +
+          'no extra characters, no complex detail (only ~10s of screen time). ' +
           'Style: playful 3D animation, soft pastel colors, warm cinematic light, one consistent cute character. ' +
-          'Name a clear camera move and the mood. End with: vertical 9:16, no text, no watermark. Story: ' + beats,
+          'Match the mood to the story. Name a clear camera move. End with: vertical 9:16, no text, no watermark. Story: ' + beats,
         200
       );
       if (better) prompt = better;
@@ -226,14 +227,30 @@ app.get('/api/status', async (req, res) => {
   }
 });
 
+// theme → tone guidance, so every AI choice matches the story's vibe
+const TONE = {
+  '悬疑': '悬疑：神秘、有谜团和紧张感，但不血腥、不恐怖',
+  '搞笑': '搞笑：轻松、荒诞、有梗，让人会心一笑，绝不惊悚或黑暗',
+  '治愈': '治愈：温暖、舒缓、美好，带点小温情',
+  '恋爱': '恋爱：甜蜜、心动、暧昧、青春',
+};
+function toneLine(theme) {
+  const t = TONE[(theme || '').toString()];
+  return t ? ('整体风格必须是【' + t + '】，所有内容都要紧贴这个风格，绝不要跑到别的类型（比如搞笑就不要写惊悚或恐怖）。') : '';
+}
+// the final film is only ~10s, so keep every beat simple and easy to picture
+const SIMPLE = '保持简单、画面感强：每句只写一个清晰、容易拍成画面的动作或场景，不要复杂支线、抽象心理或多线叙事。';
+
 // STORY STARTERS — fresh openings for "build your own" (falls back to hardcoded on the client)
 app.post('/api/starter', async (req, res) => {
   if (!ANTHROPIC_KEY) return res.json({ ok: false });
   if (rejected(req, res)) return;
+  const theme = (req.body && req.body.theme || '').toString().slice(0, 12);
   try {
     const txt = await callClaude(
       '你为一个中文好友接力故事游戏出点子。只输出 JSON，不要多余文字。',
-      '生成一个新鲜、适合好友接力续写的故事开头。返回 {"opening":["开头A","开头B","开头C"]}，每个一句话、有悬念、不超过18个字。',
+      '生成一个新鲜、适合好友接力续写的故事开头。' + toneLine(theme) + SIMPLE +
+        '返回 {"opening":["开头A","开头B","开头C"]}，每个一句话、不超过16个字、简单好懂、有画面感。',
       220
     );
     const j = pickJSON(txt, null);
@@ -253,13 +270,16 @@ app.post('/api/directions', async (req, res) => {
   if (rejected(req, res)) return;
   const story = (req.body && req.body.story || '').toString().slice(0, 1000);
   const label = (req.body && req.body.label || '下一幕').toString().slice(0, 24);
+  const theme = (req.body && req.body.theme || '').toString().slice(0, 12);
   try {
     const txt = await callClaude(
       '你为中文故事接力游戏生成续写方向。只输出 JSON 数组，不要多余文字。',
       '故事到现在：' + (story || '(还没有内容)') +
         '\n请紧接着上文的最后一句，给出 3 个不同的「下一步」发展方向。' +
         '每个方向都必须承接刚刚发生的情节、用到上文已出现的人物或线索，自然推进剧情——' +
-        '不要另起炉灶，不要引入和上文无关的新设定或新场景。每个一句话、不超过16个字。返回 ["...","...","..."]',
+        '不要另起炉灶，不要引入和上文无关的新设定或新场景。' +
+        toneLine(theme) + SIMPLE +
+        '每个一句话、不超过14个字。返回 ["...","...","..."]',
       160
     );
     const arr = pickJSON(txt, null);
@@ -279,10 +299,12 @@ app.post('/api/continue', async (req, res) => {
   if (rejected(req, res)) return;
   const story = (req.body && req.body.story || '').toString().slice(0, 1200);
   const ask = (req.body && req.body.ask || '接着把故事往下写').toString().slice(0, 40);
+  const theme = (req.body && req.body.theme || '').toString().slice(0, 12);
   try {
     const txt = await callClaude(
       '你是好友接力故事里的另一位作者，自然地接着把故事往下写。只输出续写的一句话，不要引号、不要解释。',
-      '故事到现在：' + story + '\n' + ask + '，写一句话（不超过30字），承接上文、推进剧情。',
+      '故事到现在：' + story + '\n' + ask + '，写一句话（不超过24字），承接上文、推进剧情。' +
+        toneLine(theme) + SIMPLE,
       120
     );
     const line = txt.replace(/^[\s"「『]+|[\s"」』]+$/g, '').trim();
