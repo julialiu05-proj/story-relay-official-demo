@@ -80,6 +80,7 @@
 
   /* ===================== ENTRANCE (Figma 开始一个新故事) + mode choice ===================== */
   function landing() {
+    state.chatBack = null;   // home resets the chat back-target (set by the build relay → inbox)
     render(`<div class="screen">
       ${statusbar()}
       <div class="eyebrow" style="margin-top:30px">STORY RELAY</div>
@@ -240,7 +241,7 @@
       <div class="thread" id="thread">${chatLog.join('')}</div>
       ${composer()}
     </div>`, { chat: true });
-    const back = app().querySelector('.chat-head .back'); if (back) back.onclick = () => { chatLog = []; landing(); };
+    const back = app().querySelector('.chat-head .back'); if (back) back.onclick = () => { chatLog = []; (state.chatBack || landing)(); };
     const t = document.getElementById('thread'); t.scrollTop = t.scrollHeight; return t;
   }
   function msgHTML(m) {
@@ -281,6 +282,7 @@
   /* ---- CAT (build) chat segments ---- */
   function catChat1() {  // you wrote 幕1; Julia writes 幕2, then hands 幕3 back to you
     if (state.mode === 'build') fetchContinue('j2', [state.scenes.s1].filter(Boolean).join(' '), '接着写第 2 幕');
+    state.chatBack = inbox;   // ‹ back here opens the "接力箱" — stories friends sent YOU
     chatLog = [];
     playChat([
       { day: '今天 下午 3:20' },
@@ -298,6 +300,71 @@
       { in: '我们的大结局也太好看了！🎬' },
       { film: { tap: true, total: 4 } },
     ], () => generating());
+  }
+
+  /* ===================== 接力箱 · stories friends sent YOU (reverse relay) ===================== */
+  const INBOX = [
+    { friend: FRIENDS[1], handle: '@crystal', meta: '12 关注 · 88 粉丝',
+      opening: '午夜的便利店，收银员是一只猫。',
+      msg: '帮我接着写第 2 幕！🙏',
+      options: ['你假装没看见，继续挑关东煮。', '你问猫：今天几点关门？', '你掏出手机想拍照，猫瞪了你一眼。'] },
+    { friend: FRIENDS[2], handle: '@theo', meta: '9 关注 · 40 粉丝',
+      opening: '实验室爆炸那天，时间倒流了十分钟。',
+      msg: '就差一幕，你来续！⏳',
+      options: ['你冲回去，想阻止爆炸。', '你愣在原地，看着一切重演。', '你发现只有你记得刚刚发生的事。'] },
+  ];
+  const ibAv = (f) => f.av ? `<img src="${f.av}">` : `<span style="background:${f.bg}">${f.emoji}</span>`;
+
+  function inbox() {
+    chatLog = [];
+    render(`<div class="screen">
+      ${statusbar()}
+      <div class="bar"><span class="back">‹</span><span class="screen-title">接力箱</span></div>
+      <div style="margin-top:10px">
+        <div class="section-title" style="text-align:left;font-size:22px">好友发来的接力</div>
+        <div class="sub" style="margin-top:4px;font-size:15px">轮到你接着写啦</div>
+      </div>
+      <div class="inbox-list">
+        ${INBOX.map((it, i) => `<div class="inbox-row" data-i="${i}">
+          <div class="ib-av">${ibAv(it.friend)}</div>
+          <div class="ib-meta">
+            <div class="ib-name">${it.friend.name}</div>
+            <div class="ib-snip">${it.opening}</div>
+            <div class="ib-prog">${dotsRow(1, 4)}<span class="cnt">该你写第 2 幕</span></div>
+          </div>
+          <div class="ib-go">继续</div>
+        </div>`).join('')}
+      </div>
+    </div>`);
+    app().querySelector('.back').onclick = landing;
+    app().querySelectorAll('.inbox-row').forEach(r => r.onclick = () => incomingChat(INBOX[+r.dataset.i]));
+  }
+
+  // a friend handed YOU their story — reverse roles: the incoming card is theirs, you continue it
+  function incomingChat(item) {
+    chatLog = [];
+    state.friend = item.friend;
+    state.chatBack = inbox;
+    playChat([
+      { profile: { name: item.friend.name, handle: item.handle, meta: item.meta } },
+      { day: '今天 上午 11:02' },
+      { in: item.msg },
+      { card: { side: 'in', total: 4, title: `${item.friend.name} 完成了第 1 幕`, done: 1, pill: '接着写 第 2 幕', go: true, tap: true } },
+    ], () => incomingEditor(item));
+  }
+  function incomingEditor(item) {
+    editor({
+      cur: 1, total: 4, key: 'inbox', heading: '你来续写', placeholder: '自己写这一幕…',
+      ctx: { who: `${item.friend.name} 写的 · 第 1 幕`, body: item.opening, avatar: 'friend' },
+      options: item.options, cta: '发回 ' + item.friend.name,
+      next: () => incomingSent(item),
+    });
+  }
+  function incomingSent(item) {
+    playChat([
+      { card: { side: 'out', total: 4, title: '你完成了第 2 幕', done: 2, pill: '已发回 ' + item.friend.name } },
+      { in: '谢啦！接下来交给我～😎' },
+    ]);
   }
 
   /* ===================== PICK A FRIEND (bottom sheet) ===================== */

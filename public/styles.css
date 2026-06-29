@@ -276,6 +276,22 @@ body {
 }
 .scard .pill.go { background: var(--lime); color: var(--ink); }
 
+/* 接力箱 · inbox of stories friends sent you */
+.inbox-list { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+.inbox-row { display: flex; align-items: center; gap: 12px; padding: 14px; background: #fff; border: 1px solid var(--hair); border-radius: 18px; box-shadow: var(--shadow-card); cursor: pointer; transition: transform .12s ease; }
+.inbox-row:active { transform: scale(.985); }
+.ib-av { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex: 0 0 auto; }
+.ib-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ib-av span { width: 100%; height: 100%; display: grid; place-items: center; font-size: 24px; }
+.ib-meta { flex: 1 1 auto; min-width: 0; }
+.ib-name { font-size: 15px; font-weight: 800; color: var(--ink); }
+.ib-snip { font-size: 13px; color: var(--ink-2); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ib-prog { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.ib-prog .dots { padding: 0; gap: 6px; justify-content: flex-start; }
+.ib-prog .dots i { width: 7px; height: 7px; }
+.ib-prog .cnt { font-size: 11px; font-weight: 700; color: var(--ink-2); }
+.ib-go { flex: 0 0 auto; height: 34px; padding: 0 16px; border-radius: 999px; background: var(--lime); color: var(--ink); display: flex; align-items: center; font-size: 13px; font-weight: 800; }
+
 /* typing indicator */
 .bubble.typing { display: inline-flex; gap: 5px; align-items: center; padding: 14px 16px; }
 .bubble.typing i { width: 7px; height: 7px; border-radius: 50%; background: #9a9aa0; display: block; animation: blink 1.2s infinite ease-in-out; }
