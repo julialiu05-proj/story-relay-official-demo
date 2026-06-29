@@ -24,7 +24,7 @@
 html, body { margin: 0; height: 100%; }
 body {
   font-family: "Noto Sans SC", -apple-system, "PingFang SC", system-ui, sans-serif;
-  background: linear-gradient(125deg, #f2f9d6 0%, #dcef8a 42%, #cae663 78%, #c0e155 100%);
+  background: #CBE62C;
   color: var(--ink);
   display: flex;
   align-items: center;
