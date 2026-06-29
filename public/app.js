@@ -431,9 +431,7 @@
       ${statusbar()}
       <div class="gen-center">
         <div class="gen-sparkles">
-          <img class="spk spk-sm" src="./assets/star.svg" alt="">
           <img class="spk spk-lg" src="./assets/star.svg" alt="">
-          <img class="spk spk-md" src="./assets/star.svg" alt="">
         </div>
         <div class="gen-title">正在生成你们的影片…</div>
         <div class="gen-sub" id="gsub">马上就好，请稍候…</div>
