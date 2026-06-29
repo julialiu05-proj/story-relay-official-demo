@@ -307,11 +307,15 @@
     { friend: FRIENDS[1], handle: '@crystal', meta: '12 关注 · 88 粉丝',
       opening: '午夜的便利店，收银员是一只猫。',
       msg: '帮我接着写第 2 幕！🙏',
-      options: ['你假装没看见，继续挑关东煮。', '你问猫：今天几点关门？', '你掏出手机想拍照，猫瞪了你一眼。'] },
+      options: ['你假装没看见，继续挑关东煮。', '你问猫：今天几点关门？', '你掏出手机想拍照，猫瞪了你一眼。'],
+      cont3: '猫从柜台下抽出一张藏宝图，塞进你怀里。',
+      finale: ['你跟着猫冲进后巷找宝藏。', '你笑着把图还回去，照常买单。', '镜头拉远——整条街的店员都是猫。'] },
     { friend: FRIENDS[2], handle: '@theo', meta: '9 关注 · 40 粉丝',
       opening: '实验室爆炸那天，时间倒流了十分钟。',
       msg: '就差一幕，你来续！⏳',
-      options: ['你冲回去，想阻止爆炸。', '你愣在原地，看着一切重演。', '你发现只有你记得刚刚发生的事。'] },
+      options: ['你冲回去，想阻止爆炸。', '你愣在原地，看着一切重演。', '你发现只有你记得刚刚发生的事。'],
+      cont3: '一次次重来，你终于发现是同事按错了按钮。',
+      finale: ['你抢先一步按住他的手。', '你索性又炸了一次，看个够。', '镜头拉远——这只是一段循环动画。'] },
   ];
   const ibAv = (f) => f.av ? `<img src="${f.av}">` : `<span style="background:${f.bg}">${f.emoji}</span>`;
 
@@ -354,17 +358,36 @@
   }
   function incomingEditor(item) {
     editor({
-      cur: 1, total: 4, key: 'inbox', heading: '你来续写', placeholder: '自己写这一幕…',
+      cur: 1, total: 4, key: 'inbox2', heading: '你来续写', placeholder: '自己写这一幕…',
       ctx: { who: `${item.friend.name} 写的 · 第 1 幕`, body: item.opening, avatar: 'friend' },
       options: item.options, cta: '发回 ' + item.friend.name,
       next: () => incomingSent(item),
     });
   }
+  // you sent 幕2 back → the friend writes 幕3 and hands you the finale
   function incomingSent(item) {
     playChat([
-      { card: { side: 'out', total: 4, title: '你完成了第 2 幕', done: 2, pill: '已发回 ' + item.friend.name } },
-      { in: '谢啦！接下来交给我～😎' },
-    ]);
+      { card: { side: 'out', total: 4, title: '你完成了第 2 幕', done: 2, pill: '等待 ' + item.friend.name + ' 接力' } },
+      { in: '我接好啦，最后一幕交给你！😎' },
+      { card: { side: 'in', total: 4, title: `${item.friend.name} 完成了第 3 幕`, done: 3, pill: '收尾 第 4 幕', go: true, tap: true } },
+    ], () => incomingFinale(item));
+  }
+  function incomingFinale(item) {
+    editor({
+      cur: 3, total: 4, key: 'inbox4', heading: '你来收尾', placeholder: '自己写大结局…',
+      ctx: { who: `${item.friend.name} 写的 · 第 3 幕`, body: item.cont3, avatar: 'friend' },
+      options: item.finale, cta: '锁定大结局',
+      next: () => incomingFilm(item),
+    });
+  }
+  // you locked the finale → generate the film from THIS story (not the build one)
+  function incomingFilm(item) {
+    const beats = [item.opening, state.scenes.inbox2, item.cont3, state.scenes.inbox4].filter(Boolean);
+    playChat([
+      { card: { side: 'out', total: 4, title: '你完成了第 4 幕', done: 4, pill: '已锁定' } },
+      { in: '我们的故事也太好看了！🎬' },
+      { film: { side: 'in', total: 4, tap: true } },
+    ], () => generating(beats));
   }
 
   /* ===================== PICK A FRIEND (bottom sheet) ===================== */
@@ -466,8 +489,8 @@
     const s = state.scenes;
     return [s.s1, J2(), s.s3, J4()].filter(Boolean);
   }
-  function fullPrompt() {
-    const beats = sceneBeats().join(' ');
+  function fullPrompt(beatsArr) {
+    const beats = (beatsArr || sceneBeats()).join(' ');
     return [
       'Playful 3D animated short film, soft pastel colors, warm cinematic lighting, cute storybook character design, shallow depth of field, gentle flowing camera motion.',
       'Tell this story as one continuous dreamy montage:',
@@ -477,7 +500,8 @@
     ].join(' ');
   }
 
-  function generating() {
+  function generating(beatsArr) {
+    const beats = beatsArr || sceneBeats();
     render(`<div class="screen gen-screen">
       ${statusbar()}
       <div class="gen-center">
@@ -501,7 +525,7 @@
 
     fetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 10, ratio: '720:1280' }),
+      body: JSON.stringify({ prompt: fullPrompt(beats), scenes: beats, duration: 10, ratio: '720:1280' }),
     })
       .then(r => r.json())
       .then(d => {
