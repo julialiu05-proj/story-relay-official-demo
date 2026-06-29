@@ -380,13 +380,13 @@
       next: () => incomingFilm(item),
     });
   }
-  // you locked the finale → generate the film from THIS story (not the build one)
+  // you wrote the finale, so YOU send it back → generate the film from THIS story
   function incomingFilm(item) {
     const beats = [item.opening, state.scenes.inbox2, item.cont3, state.scenes.inbox4].filter(Boolean);
     playChat([
       { card: { side: 'out', total: 4, title: '你完成了第 4 幕', done: 4, pill: '已锁定' } },
-      { in: '我们的故事也太好看了！🎬' },
-      { film: { side: 'in', total: 4, tap: true } },
+      { out: '收尾啦！我把大结局做出来了 🎬' },
+      { film: { side: 'out', total: 4, tap: true } },
     ], () => generating(beats));
   }
 
