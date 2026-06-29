@@ -118,11 +118,13 @@ function rwHeaders() {
 }
 
 // Create a text-to-video task; returns the task id. Fast — fits a serverless timeout.
-async function runwayCreateTask(prompt, { ratio = '1280:720', duration = 5 } = {}) {
+async function runwayCreateTask(prompt, { ratio = '1280:720', duration = 10 } = {}) {
+  // gen4.5 accepts 5 or 10 for a single clip; clamp anything else to the longest (10s).
+  const dur = [5, 10].includes(Number(duration)) ? Number(duration) : 10;
   const createRes = await fetch(`${BASE}/text_to_video`, {
     method: 'POST',
     headers: rwHeaders(),
-    body: JSON.stringify({ promptText: prompt, model: MODEL, ratio, duration }),
+    body: JSON.stringify({ promptText: prompt, model: MODEL, ratio, duration: dur }),
   });
   if (!createRes.ok) {
     const body = await createRes.text();
@@ -177,7 +179,8 @@ app.post('/api/generate', async (req, res) => {
       const beats = scenes.filter(Boolean).join(' ');
       const better = await callClaude(
         'You are a cinematic director. Output ONLY one text-to-video prompt — no preamble, no quotes.',
-        'Turn this short story into ONE vivid English prompt (max 60 words) for a 6-10 second clip. ' +
+        'Turn this 4-beat story into ONE vivid English prompt (max 70 words) for a 10 second clip. ' +
+          'Cover all four beats in order as one continuous shot so the action flows scene to scene. ' +
           'Style: playful 3D animation, soft pastel colors, warm cinematic light, one consistent cute character. ' +
           'Name a clear camera move and the mood. End with: vertical 9:16, no text, no watermark. Story: ' + beats,
         200
@@ -254,7 +257,9 @@ app.post('/api/directions', async (req, res) => {
     const txt = await callClaude(
       '你为中文故事接力游戏生成续写方向。只输出 JSON 数组，不要多余文字。',
       '故事到现在：' + (story || '(还没有内容)') +
-        '\n围绕「' + label + '」给出 3 个不同、有趣的方向，每个一句话、不超过16个字。返回 ["...","...","..."]',
+        '\n请紧接着上文的最后一句，给出 3 个不同的「下一步」发展方向。' +
+        '每个方向都必须承接刚刚发生的情节、用到上文已出现的人物或线索，自然推进剧情——' +
+        '不要另起炉灶，不要引入和上文无关的新设定或新场景。每个一句话、不超过16个字。返回 ["...","...","..."]',
       160
     );
     const arr = pickJSON(txt, null);

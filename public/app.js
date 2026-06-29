@@ -25,11 +25,9 @@
       { emj: '🌿', nm: '治愈' }, { emj: '💞', nm: '恋爱' },
     ],
     opening: ['一只会说话的猫敲了你的门。', '你醒来，发现全世界只剩你一个人。', '电梯停在了一个不存在的楼层。'],
-    direction: ['你把门打开，猫径直走了进来。', '你假装不在家，但门把手开始转动。', '你问它：你怎么知道我的名字？'],
-    julia34: '猫说它来自一座漂浮在云上的城市，只有你能跟它回去。',
-    scene5: ['你跟着猫走进了夜色。', '你问猫：那座城市在哪里？', '你犹豫了，把门又关上了。'],
-    scene6: ['猫带你来到一扇会发光的门前。', '街角的路灯一盏盏亮了起来。', '猫突然停下，回头看你。'],
-    julia78: '门后是整座漂浮的城市，猫回头说：欢迎回家。',
+    julia2: '你打开门，猫说它来自云上的城市，只有你能跟它回去。',
+    scene3: ['你跟着猫走进了夜色。', '你问猫：那座城市在哪里？', '你犹豫了，把门又关上了。'],
+    julia4: '猫带你穿过那扇会发光的门，回头说：欢迎回家。',
   };
 
   const state = { mode: null, theme: '悬疑', scenes: {}, chosen: null, dyn: {}, starterP: null, friend: { name: 'Julia', av: './assets/julia.jpeg' } };
@@ -38,7 +36,7 @@
   /* ---- optional Claude features (graceful: any failure falls back to hardcoded) ---- */
   function storySoFar() {
     const s = state.scenes;
-    return [s.s1, s.s2, J34(), s.s5, s.s6].filter(Boolean).join(' ');
+    return [s.s1, J2(), s.s3].filter(Boolean).join(' ');
   }
   function fetchStarter() {
     state.starterP = fetch('/api/starter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
@@ -47,8 +45,8 @@
       .catch(() => null);
   }
   // the friend's relay turns — AI-written continuation of YOUR story (falls back to the canned cat lines)
-  const J34 = () => state.dyn.j34 || STORY.julia34;
-  const J78 = () => state.dyn.j78 || STORY.julia78;
+  const J2 = () => state.dyn.j2 || STORY.julia2;
+  const J4 = () => state.dyn.j4 || STORY.julia4;
   function fetchContinue(key, story, ask) {
     return fetch('/api/continue', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ story, ask }) })
       .then(r => r.json())
@@ -129,8 +127,8 @@
     const aiBuild = state.mode === 'build' && (cfg.dyn || (cfg.key === 's1' && state.starterP));
     render(`<div class="screen">
       ${statusbar()}
-      ${dotsHTML(cfg.cur)}
-      <div class="count" style="margin-top:16px">${cfg.cur + 1} / 8</div>
+      ${dotsHTML(cfg.cur, cfg.total || 8)}
+      <div class="count" style="margin-top:16px">${cfg.cur + 1} / ${cfg.total || 8}</div>
       <div class="edit-mid">
         ${cfg.ctx ? `<div class="ctx">
           <div class="who">${cfg.ctx.avatar === 'lime' ? `<span class="av"></span>` : favHTML('av', 13)}<span>${cfg.ctx.who}</span></div>
@@ -195,18 +193,12 @@
   }
 
   const EDITORS = {
-    s1: { cur: 0, key: 's1', heading: '选一个开头', cta: '下一幕', placeholder: '自己写一个开头…',
+    s1: { cur: 0, total: 4, key: 's1', heading: '选一个开头', cta: '发给好友', placeholder: '自己写一个开头…',
       intro: { t: '写下故事的开头', s: '选一个，或者自己写一个' },
-      get options() { return state.dyn.opening || STORY.opening }, next: () => editor(EDITORS.s2) },
-    s2: { cur: 1, key: 's2', heading: '接着往哪走', cta: '发给好友', placeholder: '自己写…', dyn: true,
-      get ctx() { return { who: '你写的 · 第 1 幕', body: state.scenes.s1 || STORY.opening[0], avatar: 'lime' } },
-      get options() { return STORY.direction }, next: () => pickFriend(() => catChat1()) },
-    s5: { cur: 4, key: 's5', heading: '接着写', cta: '下一幕', placeholder: '自己写第 5 幕…', dyn: true,
-      get ctx() { return { who: `${FNAME()} 写的 · 第 3–4 幕`, body: J34(), avatar: 'julia' } },
-      get options() { return STORY.scene5 }, next: () => editor(EDITORS.s6) },
-    s6: { cur: 5, key: 's6', heading: '接着写', get cta() { return '发给 ' + FNAME(); }, placeholder: '自己写第 6 幕…', dyn: true,
-      get ctx() { return { who: '你写的 · 第 5 幕', body: state.scenes.s5 || STORY.scene5[0], avatar: 'lime' } },
-      get options() { return STORY.scene6 }, next: () => catChat2() },
+      get options() { return state.dyn.opening || STORY.opening }, next: () => pickFriend(() => catChat1()) },
+    s3: { cur: 2, total: 4, key: 's3', heading: '接着往下写', get cta() { return '发给 ' + FNAME(); }, placeholder: '自己写第 3 幕…', dyn: true,
+      get ctx() { return { who: `${FNAME()} 写的 · 第 2 幕`, body: J2(), avatar: 'julia' } },
+      get options() { return STORY.scene3 }, next: () => catChat2() },
   };
 
   /* ===================== DM thread bits ===================== */
@@ -225,12 +217,12 @@
     for (let i = 0; i < total; i++) s += `<i class="${i < done ? 'done' : ''}"></i>`;
     return s + `</div>`;
   }
-  function filmCard(poster = POSTER, side = 'in') {
+  function filmCard(poster = POSTER, side = 'in', total = 8) {
     return `<div class="scard ${side}" data-tap="film">
       <div class="poster"><img src="${poster}"><div class="play"><span>▶</span></div></div>
       <div class="meta">
         <div class="t">🎬 我们的大结局</div>
-        <div class="dotsline">${dotsRow(8, 8)}<span class="cnt">8 / 8</span></div>
+        <div class="dotsline">${dotsRow(total, total)}<span class="cnt">${total} / ${total}</span></div>
         <div class="pill go">一起看大结局</div>
       </div>
     </div>`;
@@ -256,7 +248,7 @@
     if (m.day != null) return `<div class="daydiv">${m.day}</div>`;
     if (m.in != null) return `<div class="row in">${favHTML('av', 16)}<div class="bubble">${m.in}</div></div>`;
     if (m.out != null) return `<div class="row out"><div class="bubble">${m.out}</div></div>`;
-    if (m.film) { const fc = filmCard(m.film.poster, m.film.side); return m.film.side === 'out' ? fc : `<div class="row in cardrow">${favHTML('av', 16)}${fc}</div>`; }
+    if (m.film) { const fc = filmCard(m.film.poster, m.film.side, m.film.total); return m.film.side === 'out' ? fc : `<div class="row in cardrow">${favHTML('av', 16)}${fc}</div>`; }
     if (m.card) { const sc = storyCard(m.card); return m.card.side === 'in' ? `<div class="row in cardrow">${favHTML('av', 16)}${sc}</div>` : sc; }
     return '';
   }
@@ -287,24 +279,24 @@
   }
 
   /* ---- CAT (build) chat segments ---- */
-  function catChat1() {  // after 方向 2/8 you sent 1–2, Julia writes 3–4
-    if (state.mode === 'build') fetchContinue('j34', [state.scenes.s1, state.scenes.s2].filter(Boolean).join(' '), '接着写第 3–4 幕');
+  function catChat1() {  // you wrote 幕1; Julia writes 幕2, then hands 幕3 back to you
+    if (state.mode === 'build') fetchContinue('j2', [state.scenes.s1].filter(Boolean).join(' '), '接着写第 2 幕');
     chatLog = [];
     playChat([
       { day: '今天 下午 3:20' },
       { out: '我来写！' },
-      { card: { side: 'out', title: '你完成了第 1–2 幕', done: 2, pill: `等待 ${FNAME()} 接力` } },
-      { in: '该你写第 5 幕啦！' },
-      { card: { side: 'in', title: `${FNAME()} 完成了第 3–4 幕`, done: 4, pill: '接着写 第 5 幕', go: true, tap: true } },
-    ], () => editor(EDITORS.s5));
+      { card: { side: 'out', total: 4, title: '你完成了第 1 幕', done: 1, pill: `等待 ${FNAME()} 接力` } },
+      { in: '我接好啦，该你写第 3 幕！' },
+      { card: { side: 'in', total: 4, title: `${FNAME()} 完成了第 2 幕`, done: 2, pill: '接着写 第 3 幕', go: true, tap: true } },
+    ], () => editor(EDITORS.s3));
   }
-  function catChat2() {  // after 第6幕 you sent 5–6, Julia finishes 7–8 + film
-    if (state.mode === 'build') fetchContinue('j78', [state.scenes.s1, state.scenes.s2, J34(), state.scenes.s5, state.scenes.s6].filter(Boolean).join(' '), '写故事的大结局第 7–8 幕，收尾');
+  function catChat2() {  // you wrote 幕3; Julia finishes 幕4 (结局) + film
+    if (state.mode === 'build') fetchContinue('j4', [state.scenes.s1, J2(), state.scenes.s3].filter(Boolean).join(' '), '写故事的大结局第 4 幕，收尾');
     playChat([
-      { card: { side: 'out', title: '你完成了第 5–6 幕', done: 6, pill: `等待 ${FNAME()} 收尾` } },
-      { card: { side: 'in', title: `${FNAME()} 完成了第 7–8 幕`, done: 8, pill: '已接力' } },
+      { card: { side: 'out', total: 4, title: '你完成了第 3 幕', done: 3, pill: `等待 ${FNAME()} 收尾` } },
+      { card: { side: 'in', total: 4, title: `${FNAME()} 完成了第 4 幕`, done: 4, pill: '已接力' } },
       { in: '我们的大结局也太好看了！🎬' },
-      { film: { tap: true } },
+      { film: { tap: true, total: 4 } },
     ], () => generating());
   }
 
@@ -413,7 +405,7 @@
   // Template-only prompt: locked style + the full story beats + technical constraints → one 6–10s clip.
   function sceneBeats() {
     const s = state.scenes;
-    return [s.s1, s.s2, J34(), s.s5, s.s6, J78()].filter(Boolean);
+    return [s.s1, J2(), s.s3, J4()].filter(Boolean);
   }
   function fullPrompt() {
     const beats = sceneBeats().join(' ');
@@ -450,7 +442,7 @@
 
     fetch('/api/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 8, ratio: '720:1280' }),
+      body: JSON.stringify({ prompt: fullPrompt(), scenes: sceneBeats(), duration: 10, ratio: '720:1280' }),
     })
       .then(r => r.json())
       .then(d => {
