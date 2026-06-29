@@ -347,34 +347,26 @@
     const vid = app().querySelector('.covervid');
     const still = app().querySelector('.coverstill');
     if (vid) vid.onended = () => still.classList.add('show');  // freeze on the mango-whale still
-    document.getElementById('join').onclick = () => editor(WED.w3);
+    document.getElementById('join').onclick = () => editor(WED.w2);
   }
 
   /* ===================== WHALE flow (Door 1 · 看一个示例 / continue) ===================== */
   const WHALE = {
-    julia12: 'Tung Tung Tung Sahur 和朋友发现一头搁浅的巨鲸，决定爬上它的脊背一探究竟。',
-    scene3: ['在鲸鱼的头上挖了个洞，钻了进去。', '想把鲸鱼推回大海里。', '在鲸鱼背上铺开野餐垫。'],
-    scene4: ['一间舒服的客厅——沙发、台灯、电视，全套都有。', '一间录音棚，给 Sahur 录下一首节拍。', '一座室内泳池。在鲸鱼肚子里，挺大胆。'],
-    julia56: '鲸鱼醒了，客厅进水了，大家手忙脚乱地往它头顶爬。',
-    scene7: ['鲸鱼驮着他们，游向了夕阳。', '镜头拉远 —— 原来这都是 Sahur 的一场梦。', '他们在鲸鱼背上办了场告别派对。'],
-    scene8: ['鲸鱼驮着他们，游向了夕阳。', '镜头拉远 —— 原来这都是 Sahur 的一场梦。', '他们在鲸鱼背上办了场告别派对。'],
+    julia1: 'Tung Tung Tung Sahur 和朋友发现一头搁浅的巨鲸，决定爬上它的脊背一探究竟。',
+    scene2: ['在鲸鱼的头上挖了个洞，钻了进去。', '想合力把鲸鱼推回大海里。', '在鲸鱼背上铺开野餐垫。'],
+    julia3: '钻进去才发现，鲸鱼肚子里竟是一整间客厅；这时鲸鱼忽然醒了，海水猛地灌了进来。',
+    scene4: ['鲸鱼驮着他们，一路游向夕阳。', '镜头拉远 —— 原来这都是 Sahur 的一场梦。', '他们在鲸鱼背上办了场告别派对。'],
   };
   const WED = {
-    w3: { title: 'Julia 的接力', cur: 2, key: 'w3', heading: '你来续写', cta: '下一幕', placeholder: '自己写这一幕…',
-      ctx: { who: 'Julia 写的 · 第 1–2 幕', body: WHALE.julia12, avatar: 'julia' },
-      get options() { return WHALE.scene3 }, next: () => editor(WED.w4) },
-    w4: { title: 'Julia 的接力', cur: 3, key: 'w4', heading: '你来续写', cta: '发回', placeholder: '自己写这一幕…',
-      get ctx() { return { who: '你写的 · 第 3 幕', body: state.scenes.w3 || WHALE.scene3[0], avatar: 'lime' } },
-      get options() { return WHALE.scene4 }, next: () => whaleChat2() },
-    w7: { title: 'Julia 的接力', cur: 6, key: 'w7', heading: '你来收尾', cta: '下一幕', placeholder: '自己写这一幕…',
-      ctx: { who: 'Julia 写的 · 第 5–6 幕', body: WHALE.julia56, avatar: 'julia' },
-      get options() { return WHALE.scene7 }, next: () => editor(WED.w8) },
-    w8: { title: 'Julia 的接力', cur: 7, key: 'w8', heading: '你来收尾', cta: '锁定大结局', placeholder: '自己写这一幕…',
-      get ctx() { return { who: '你写的 · 第 7 幕', body: state.scenes.w7 || WHALE.scene7[0], avatar: 'lime' } },
-      get options() { return WHALE.scene8 }, next: () => whaleChat3() },
+    w2: { title: 'Julia 的接力', cur: 1, total: 4, key: 'w2', heading: '你来续写', cta: '发回', placeholder: '自己写这一幕…',
+      ctx: { who: 'Julia 写的 · 第 1 幕', body: WHALE.julia1, avatar: 'julia' },
+      get options() { return WHALE.scene2 }, next: () => whaleChat2() },
+    w4: { title: 'Julia 的接力', cur: 3, total: 4, key: 'w4', heading: '你来收尾', cta: '锁定大结局', placeholder: '自己写这一幕…',
+      get ctx() { return { who: 'Julia 写的 · 第 3 幕', body: WHALE.julia3, avatar: 'julia' } },
+      get options() { return WHALE.scene4 }, next: () => whaleChat3() },
   };
 
-  // receive: Julia hands you 芒果鲸鱼 tap 接着写 editor w3
+  // receive: Julia hands you 芒果鲸鱼 (she wrote 幕1) → tap 查看 → cover → editor w2
   function whaleStart() {
     chatLog = [];
     state.friend = FRIENDS[0];   // Door 1: the story came from Julia
@@ -382,22 +374,22 @@
       { profile: { name: 'Julia', handle: '@julia77', meta: '4 关注 · 51 粉丝' } },
       { day: '今天 下午 3:21' },
       { in: '你一定要帮我把这个写完！😭' },
-      { card: { side: 'in', poster: WHALE_POSTER, title: 'Julia 完成了第 1–2 幕', done: 2, pill: '查看', go: true, tap: true } },
+      { card: { side: 'in', total: 4, poster: WHALE_POSTER, title: 'Julia 完成了第 1 幕', done: 1, pill: '查看', go: true, tap: true } },
     ], () => cover());
   }
-  // after 4/8 you sent 3–4, Julia writes 5–6 tap 接着收尾 editor w7
+  // you wrote 幕2 → Julia writes 幕3 → tap 收尾 → editor w4
   function whaleChat2() {
     playChat([
-      { card: { side: 'out', poster: WHALE_POSTER, title: '你完成了第 3–4 幕', done: 4, pill: '等待 Julia 接力' } },
-      { card: { side: 'in', poster: WHALE_POSTER, title: 'Julia 完成了第 5–6 幕', done: 6, pill: '收尾', go: true, tap: true } },
-    ], () => editor(WED.w7));
+      { card: { side: 'out', total: 4, poster: WHALE_POSTER, title: '你完成了第 2 幕', done: 2, pill: '等待 Julia 接力' } },
+      { card: { side: 'in', total: 4, poster: WHALE_POSTER, title: 'Julia 完成了第 3 幕', done: 3, pill: '收尾', go: true, tap: true } },
+    ], () => editor(WED.w4));
   }
-  // after 8/8 you finished, the film is ready tap generate whale film
+  // you finished 幕4 → the film is ready → tap → generate whale film
   function whaleChat3() {
     playChat([
-      { card: { side: 'out', poster: WHALE_POSTER, title: '你完成了第 7–8 幕', done: 8, pill: '已锁定' } },
+      { card: { side: 'out', total: 4, poster: WHALE_POSTER, title: '你完成了第 4 幕', done: 4, pill: '已锁定' } },
       { out: '我把大结局做出来了！🎬' },
-      { film: { poster: WHALE_POSTER, side: 'out', tap: true } },
+      { film: { poster: WHALE_POSTER, side: 'out', total: 4, tap: true } },
     ], () => generating());
   }
 
