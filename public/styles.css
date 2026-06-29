@@ -43,7 +43,7 @@ body {
   pointer-events: none; user-select: none; white-space: nowrap;
 }
 .bgword.l { left: -4%; }
-.bgword.r { right: calc(-4% - 2px); }
+.bgword.r { right: calc(-4% - 6px); }
 
 /* ---- stage: takes the SCALED footprint so flex-centering is exact ---- */
 #stage {
