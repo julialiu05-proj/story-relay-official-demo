@@ -74,6 +74,7 @@
   }
 
   function render(html, { chat = false } = {}) {
+    chatSeq++;   // any screen change invalidates a still-animating chat's pending timers
     phone().classList.toggle('is-chat', chat);
     app().innerHTML = html + home();
   }
@@ -234,6 +235,7 @@
 
   /* ---- sequential chat engine: messages reveal one at a time (real chat) ---- */
   let chatLog = [];
+  let chatSeq = 0;   // bumped by render(); a playChat owns the engine only while its stamp is current
   function chatShell() {
     render(`<div class="screen">
       ${statusbar()}
@@ -257,6 +259,8 @@
   // reveal `messages` one at a time on top of the existing history; wire onTap to the last tappable
   function playChat(messages, onTap) {
     const thread = chatShell();
+    const seq = chatSeq;   // this sequence owns the engine until the next render() bumps chatSeq
+    const alive = () => seq === chatSeq && document.body.contains(thread);
     let i = 0;
     const reveal = (m) => { const h = msgHTML(m); chatLog.push(h); thread.insertAdjacentHTML('beforeend', h); thread.scrollTop = thread.scrollHeight; };
     function finish() {
@@ -266,12 +270,13 @@
       if (last) last.onclick = onTap;
     }
     function step() {
+      if (!alive()) return;   // navigated to another screen/chat — drop this stale sequence
       if (i >= messages.length) return finish();
       const m = messages[i++];
       if (isIncoming(m)) {
         const wrap = document.createElement('div'); wrap.innerHTML = typing();
         const tEl = wrap.firstElementChild; thread.appendChild(tEl); thread.scrollTop = thread.scrollHeight;
-        setTimeout(() => { tEl.remove(); reveal(m); setTimeout(step, 450); }, 1100);
+        setTimeout(() => { if (!alive()) return; tEl.remove(); reveal(m); setTimeout(step, 450); }, 1100);
       } else {
         reveal(m); setTimeout(step, m.day != null ? 350 : 700);
       }
